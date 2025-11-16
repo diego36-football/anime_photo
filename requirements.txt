@@ -1,0 +1,22 @@
+# Python 패키지 의존성
+
+# OpenAI API
+openai>=1.0.0
+
+# Google YouTube API
+google-auth>=2.16.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.1.0
+google-api-python-client>=2.70.0
+
+# 이미지 처리
+Pillow>=10.0.0
+
+# 영상 처리
+moviepy>=1.0.3
+imageio>=2.25.0
+imageio-ffmpeg>=0.4.8
+
+# 유틸리티
+python-dotenv>=1.0.0
+requests>=2.31.0

@@ -1,0 +1,301 @@
+{
+  "name": "YouTube Shorts 자동화 - 운세 및 토종비결",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "매일 실행 스케줄",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "notes": "매일 정해진 시간에 워크플로우 실행"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "content_type",
+              "value": "={{ Math.random() > 0.5 ? 'fortune' : 'tojong' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "random-content-type",
+      "name": "콘텐츠 타입 결정",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "notes": "운세 또는 토종비결 중 랜덤 선택"
+    },
+    {
+      "parameters": {
+        "command": "cd /home/user/anime_photo/scripts && python3 generate_content.py --type {{ $json.content_type }} --output-dir ../output/content"
+      },
+      "id": "generate-content",
+      "name": "콘텐츠 생성",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "notes": "Python 스크립트로 운세/토종비결 콘텐츠 생성"
+    },
+    {
+      "parameters": {
+        "path": "/home/user/anime_photo/output/content",
+        "fileSelector": "*.json",
+        "options": {
+          "sortBy": "modifiedDate",
+          "sortOrder": "descending",
+          "maxResults": 1
+        }
+      },
+      "id": "get-latest-content",
+      "name": "최신 콘텐츠 파일 가져오기",
+      "type": "n8n-nodes-base.readBinaryFiles",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "notes": "가장 최근에 생성된 콘텐츠 파일 읽기"
+    },
+    {
+      "parameters": {
+        "command": "cd /home/user/anime_photo/scripts && python3 generate_video.py --content {{ $json.file_path }} --duration 30 --output-dir ../output/videos"
+      },
+      "id": "generate-video",
+      "name": "영상 생성",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "notes": "콘텐츠를 바탕으로 숏츠 영상 생성"
+    },
+    {
+      "parameters": {
+        "path": "/home/user/anime_photo/output/videos",
+        "fileSelector": "*.mp4",
+        "options": {
+          "sortBy": "modifiedDate",
+          "sortOrder": "descending",
+          "maxResults": 1
+        }
+      },
+      "id": "get-latest-video",
+      "name": "최신 영상 파일 가져오기",
+      "type": "n8n-nodes-base.readBinaryFiles",
+      "typeVersion": 1,
+      "position": [1250, 300],
+      "notes": "가장 최근에 생성된 영상 파일 읽기"
+    },
+    {
+      "parameters": {
+        "command": "cd /home/user/anime_photo/scripts && python3 upload_youtube.py --video {{ $json.file_path }} --metadata {{ $json.file_path.replace('.mp4', '.json') }} --privacy public"
+      },
+      "id": "upload-youtube",
+      "name": "유튜브 업로드",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1450, 300],
+      "notes": "생성된 영상을 유튜브에 업로드"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.success }}",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "check-upload-success",
+      "name": "업로드 성공 확인",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1650, 300],
+      "notes": "업로드 성공 여부 확인"
+    },
+    {
+      "parameters": {
+        "text": "✅ YouTube Shorts 자동 업로드 완료!\n영상 ID: {{ $json.video_id }}\nURL: {{ $json.video_url }}",
+        "options": {}
+      },
+      "id": "success-notification",
+      "name": "성공 알림",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1850, 200],
+      "notes": "업로드 성공 시 Discord/Slack 알림 (선택)"
+    },
+    {
+      "parameters": {
+        "text": "❌ YouTube Shorts 업로드 실패\n에러: {{ $json.error }}",
+        "options": {}
+      },
+      "id": "error-notification",
+      "name": "실패 알림",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1850, 400],
+      "notes": "업로드 실패 시 알림 (선택)"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "workflow_status",
+              "value": "completed"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "log-completion",
+      "name": "완료 로그",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [2050, 300],
+      "notes": "워크플로우 완료 로그"
+    }
+  ],
+  "connections": {
+    "매일 실행 스케줄": {
+      "main": [
+        [
+          {
+            "node": "콘텐츠 타입 결정",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "콘텐츠 타입 결정": {
+      "main": [
+        [
+          {
+            "node": "콘텐츠 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "콘텐츠 생성": {
+      "main": [
+        [
+          {
+            "node": "최신 콘텐츠 파일 가져오기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "최신 콘텐츠 파일 가져오기": {
+      "main": [
+        [
+          {
+            "node": "영상 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "영상 생성": {
+      "main": [
+        [
+          {
+            "node": "최신 영상 파일 가져오기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "최신 영상 파일 가져오기": {
+      "main": [
+        [
+          {
+            "node": "유튜브 업로드",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "유튜브 업로드": {
+      "main": [
+        [
+          {
+            "node": "업로드 성공 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "업로드 성공 확인": {
+      "main": [
+        [
+          {
+            "node": "성공 알림",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "실패 알림",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "성공 알림": {
+      "main": [
+        [
+          {
+            "node": "완료 로그",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "실패 알림": {
+      "main": [
+        [
+          {
+            "node": "완료 로그",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-16T00:00:00.000Z",
+  "versionId": "1"
+}
